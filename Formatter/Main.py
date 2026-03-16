@@ -2,7 +2,7 @@ from engine.parser import DocumentParser
 from engine.structure_detector import StructureDetector
 from engine.document_model import DocumentModel, Section, SubSection
 
-file_path = "data/Raw Copy/2602325_Full_Paper.docx"
+file_path = r"D:\volume_e_files\Projects\ECLearnix\journal_converter\data\Raw_Copy\2602325_Full_Paper.docx"
 
 parser = DocumentParser(file_path)
 detector = StructureDetector()
