@@ -3,7 +3,7 @@ from engine.structure_detector import StructureDetector
 from engine.document_model import DocumentModel, Section, SubSection
 import re
 
-file_path = r"C:\Users\SRI VIGNESH\Downloads\Eclearnix\Raw Copy\2602325 Full Paper.docx"
+file_path = "data/Raw Copy/2602325_Full_Paper.docx"
 
 parser = DocumentParser(file_path)
 
