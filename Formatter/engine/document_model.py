@@ -2,31 +2,35 @@ class SubSection:
 
     def __init__(self,title,number):
 
-        self.title=title
+        self.title = title
 
-        self.number=number
+        self.number = number
 
-        self.content=[]
+        self.content = []
+
+        self.bullets = []
 
 
 class Section:
 
     def __init__(self,title,number):
 
-        self.title=title
+        self.title = title
 
-        self.number=number
+        self.number = number
 
-        self.content=[]
+        self.content = []
 
-        self.subsections=[]
+        self.subsections = []
+
+        self.bullets = []
 
 
 class DocumentModel:
 
     def __init__(self):
 
-        self.sections=[]
+        self.sections = []
 
     def add_section(self,section):
 

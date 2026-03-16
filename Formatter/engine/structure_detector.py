@@ -2,14 +2,26 @@ import re
 
 class StructureDetector:
 
+    def clean_text(self,text):
+
+        text = text.strip()
+
+        if len(text)==0:
+            return ""
+
+        # ignore punctuation lines
+        if re.match(r'^[^A-Za-z0-9]+$',text):
+
+            return ""
+
+        return text
+
+
     def is_title(self,para):
 
-        text = para.text.strip()
+        text=self.clean_text(para.text)
 
-        if len(text) == 0:
-            return False
-
-        if len(text.split()) > 15:
+        if text=="":
             return False
 
         for run in para.runs:
@@ -18,7 +30,7 @@ class StructureDetector:
 
                 if run.font.size:
 
-                    if run.font.size.pt >= 15:
+                    if run.font.size.pt>=15:
 
                         return True
 
@@ -27,9 +39,14 @@ class StructureDetector:
 
     def is_author(self,para):
 
-        text = para.text.strip()
+        text=self.clean_text(para.text)
+
+        if text=="":
+
+            return False
 
         if "," not in text:
+
             return False
 
         for run in para.runs:
@@ -43,33 +60,20 @@ class StructureDetector:
 
     def is_heading(self,para):
 
-        text = para.text.strip().lower()
+        text=self.clean_text(para.text)
 
-        SECTION_KEYWORDS = [
+        if text=="":
 
-            "abstract",
-            "introduction",
-            "review of literature",
-            "method",
-            "methodology",
-            "results",
-            "result and discussion",
-            "discussion",
-            "conclusion",
-            "reference",
-            "references",
-            "acknowledgements"
+            return False
 
-        ]
+        # detect numbered section: 1 INTRODUCTION
+        if re.match(r'^\d+\s+',text):
 
-        # exact section names
-        if text in SECTION_KEYWORDS:
             return True
 
-        # detect numbered sections like:
-        # 1 INTRODUCTION
-        # 2 METHOD
-        if re.match(r'^\d+\s+[A-Za-z]', para.text):
+        # detect ABSTRACT
+        if text.lower()=="abstract":
+
             return True
 
         return False
@@ -77,28 +81,41 @@ class StructureDetector:
 
     def is_subheading(self,para):
 
-        text = para.text.strip()
+        text=self.clean_text(para.text)
 
-        if len(text) == 0:
+        if text=="":
+
             return False
 
         # detect 2.1 style headings
-        if re.match(r'^\d+\.\d+', text):
+        if re.match(r'^\d+(\.\d+)+\.?\s*', text):
+
             return True
 
-        # detect bold short lines (likely subsection)
-        if len(text.split()) <= 8:
+        return False
 
-            for run in para.runs:
 
-                if run.bold:
+    def is_bullet(self,para):
 
-                    return True
+        text=self.clean_text(para.text)
+
+        if text=="":
+
+            return False
+
+        if re.match(r'^[•\-–]',text):
+
+            return True
 
         return False
 
 
     def classify(self,para):
+
+        text=self.clean_text(para.text)
+
+        if text=="":
+            return "IGNORE"
 
         if self.is_title(para):
             return "TITLE"
@@ -111,5 +128,8 @@ class StructureDetector:
 
         if self.is_subheading(para):
             return "SUBHEADING"
+
+        if self.is_bullet(para):
+            return "BULLET"
 
         return "PARAGRAPH"
