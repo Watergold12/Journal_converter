@@ -4,17 +4,33 @@ class StructureDetector:
 
     def clean_text(self,text):
 
-        text = text.strip()
+        text=text.strip()
 
         if len(text)==0:
             return ""
 
-        # ignore punctuation lines
         if re.match(r'^[^A-Za-z0-9]+$',text):
 
             return ""
 
         return text
+
+
+    def get_numbering(self,para):
+
+        try:
+
+            if para._element.pPr is None:
+                return False
+
+            if para._element.pPr.numPr is not None:
+
+                return True
+
+        except:
+            pass
+
+        return False
 
 
     def is_title(self,para):
@@ -42,11 +58,9 @@ class StructureDetector:
         text=self.clean_text(para.text)
 
         if text=="":
-
             return False
 
         if "," not in text:
-
             return False
 
         for run in para.runs:
@@ -63,16 +77,26 @@ class StructureDetector:
         text=self.clean_text(para.text)
 
         if text=="":
-
             return False
 
-        # detect numbered section: 1 INTRODUCTION
-        if re.match(r'^\d+\s+',text):
+        if self.get_numbering(para):
+
+            try:
+
+                level=para._element.pPr.numPr.ilvl.val
+
+                if int(level)==0:
+
+                    return True
+
+            except:
+                pass
+
+        if text.lower()=="abstract":
 
             return True
 
-        # detect ABSTRACT
-        if text.lower()=="abstract":
+        if re.match(r'^\d+\s+',text):
 
             return True
 
@@ -84,13 +108,34 @@ class StructureDetector:
         text=self.clean_text(para.text)
 
         if text=="":
-
             return False
 
-        # detect 2.1 style headings
-        if re.match(r'^\d+(\.\d+)+\.?\s*', text):
+        if re.match(r'^\d+(\.\d+)+\.?',text):
 
             return True
+
+        if self.get_numbering(para):
+
+            try:
+
+                level=para._element.pPr.numPr.ilvl.val
+
+                if int(level)>=1:
+
+                    return True
+
+            except:
+                pass
+
+        word_count=len(text.split())
+
+        if word_count<=10:
+
+            for run in para.runs:
+
+                if run.bold:
+
+                    return True
 
         return False
 
@@ -100,7 +145,6 @@ class StructureDetector:
         text=self.clean_text(para.text)
 
         if text=="":
-
             return False
 
         if re.match(r'^[•\-–]',text):

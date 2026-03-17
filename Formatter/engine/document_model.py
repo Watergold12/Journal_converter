@@ -1,37 +1,21 @@
-class SubSection:
+from docx import Document
 
-    def __init__(self,title,number):
+class DocumentParser:
 
-        self.title = title
+    def __init__(self,file_path):
 
-        self.number = number
+        self.file_path=file_path
 
-        self.content = []
+        self.doc=Document(file_path)
 
-        self.bullets = []
+    def get_paragraphs(self):
 
+        return self.doc.paragraphs
 
-class Section:
+    def get_document(self):
 
-    def __init__(self,title,number):
+        return self.doc
 
-        self.title = title
+    def get_tables(self):
 
-        self.number = number
-
-        self.content = []
-
-        self.subsections = []
-
-        self.bullets = []
-
-
-class DocumentModel:
-
-    def __init__(self):
-
-        self.sections = []
-
-    def add_section(self,section):
-
-        self.sections.append(section)
+        return self.doc.tables
