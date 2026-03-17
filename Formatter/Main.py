@@ -3,7 +3,7 @@ from engine.structure_detector import StructureDetector
 from engine.sop_formatter import SOPFormatter
 import os
 
-file_path=r"C:\Users\SRI VIGNESH\Downloads\Eclearnix\Journal_converter\data\Raw_Copy\2602320_Full_Paper.docx"
+file_path=r"data\Raw_Copy\2602320_Full_Paper.docx"
 
 parser=DocumentParser(file_path)
 

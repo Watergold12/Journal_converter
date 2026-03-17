@@ -1,5 +1,7 @@
+from io import BytesIO
+import re
 from docx import Document
-from docx.shared import Pt, RGBColor
+from docx.shared import Pt, RGBColor, Emu
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 
@@ -17,6 +19,21 @@ class SOPFormatter:
         self.sub_count = 0
 
         self.current_section = 0
+
+        self.numbering_enabled = True
+
+        self.paragraph_image_rel_ids = set()
+
+    def normalize_heading_key(self,text):
+
+        text=re.sub(r"\s+"," ",text.strip())
+
+        return text.lower().rstrip(":")
+
+
+    def strip_number_prefix(self,text):
+
+        return re.sub(r'^\d+(\.\d+)*[\.\)]?\s*','',text).strip()
 
 
     # GLOBAL FONT RULE
@@ -56,9 +73,20 @@ class SOPFormatter:
     # SECTION RULE
     def add_heading(self,text):
 
-        NON_NUMBERED=["abstract","conclusion"]
+        text=self.strip_number_prefix(text)
 
-        if text.lower() in NON_NUMBERED:
+        heading_key=self.normalize_heading_key(text)
+
+        NON_NUMBERED={"abstract","conclusion","acknowledgements","acknowledgments","references"}
+        STOP_NUMBERING={"conclusion","acknowledgements","acknowledgments","references"}
+
+        if heading_key in STOP_NUMBERING:
+
+            self.numbering_enabled=False
+
+            self.sub_count=0
+
+        if heading_key in NON_NUMBERED or not self.numbering_enabled:
 
             para=self.doc.add_paragraph(text)
 
@@ -94,6 +122,20 @@ class SOPFormatter:
 
     # SUBSECTION RULE
     def add_subheading(self,text):
+
+        text=self.strip_number_prefix(text)
+
+        if self.current_section==0 or not self.numbering_enabled:
+
+            para=self.doc.add_paragraph(text)
+
+            self.apply_font(para)
+
+            for run in para.runs:
+
+                run.bold=True
+
+            return
 
         self.sub_count+=1
 
@@ -168,18 +210,63 @@ class SOPFormatter:
 
 
     # IMAGE RULE
-    def copy_images(self):
+    def add_image_by_rel_id(self,rel_id,width_emu=None):
+
+        image_part=self.source.part.related_parts.get(rel_id)
+
+        if image_part is None:
+
+            return
+
+        image_stream=BytesIO(image_part.blob)
+
+        max_width=4000000
+
+        if width_emu is not None:
+
+            width_emu=min(int(width_emu),max_width)
+
+            self.doc.add_picture(image_stream,width=Emu(width_emu))
+
+        else:
+
+            self.doc.add_picture(image_stream)
+
+
+    def copy_images_from_paragraph(self,para):
+
+        drawings=para._element.xpath('.//w:drawing')
+
+        for drawing in drawings:
+
+            rel_ids=drawing.xpath('.//a:blip/@r:embed')
+
+            widths=drawing.xpath('.//wp:extent/@cx')
+
+            width_emu=int(widths[0]) if widths else None
+
+            for rel_id in rel_ids:
+
+                self.paragraph_image_rel_ids.add(rel_id)
+
+                self.add_image_by_rel_id(rel_id,width_emu)
+
+
+    def copy_remaining_images(self):
 
         for shape in self.source.inline_shapes:
 
-            width=shape.width
+            rel_ids=shape._inline.xpath('.//a:blip/@r:embed')
 
-            if width>4000000:
+            width_emu=int(shape.width) if shape.width is not None else None
 
-                width=4000000
+            for rel_id in rel_ids:
 
-            # placeholder paragraph
-            self.doc.add_paragraph("[IMAGE]")
+                if rel_id in self.paragraph_image_rel_ids:
+
+                    continue
+
+                self.add_image_by_rel_id(rel_id,width_emu)
 
 
 
@@ -197,6 +284,8 @@ class SOPFormatter:
     def build(self,detector):
 
         for para in self.source.paragraphs:
+
+            self.copy_images_from_paragraph(para)
 
             text=para.text.strip()
 
@@ -232,10 +321,10 @@ class SOPFormatter:
 
                 self.add_paragraph(text)
 
+        # Handles inline shapes that may not be discoverable via paragraphs.
+        self.copy_remaining_images()
 
         self.copy_tables()
-
-        self.copy_images()
 
         self.apply_double_column()
 

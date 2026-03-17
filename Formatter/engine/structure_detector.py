@@ -2,6 +2,20 @@ import re
 
 class StructureDetector:
 
+    SECTION_KEYWORDS = {
+        "abstract",
+        "introduction",
+        "review of literature",
+        "literature review",
+        "methodology",
+        "result and discussion",
+        "results and discussion",
+        "conclusion",
+        "acknowledgements",
+        "acknowledgments",
+        "references",
+    }
+
     def clean_text(self,text):
 
         text=text.strip()
@@ -16,46 +30,80 @@ class StructureDetector:
         return text
 
 
-    def get_numbering(self,para):
+    def normalize_text(self,text):
+
+        text=self.clean_text(text)
+
+        if text=="":
+            return ""
+
+        text=re.sub(r"\s+"," ",text)
+
+        return text.strip()
+
+
+    def get_numbering_level(self,para):
 
         try:
 
             if para._element.pPr is None:
-                return False
+                return None
 
-            if para._element.pPr.numPr is not None:
+            numPr=para._element.pPr.numPr
+
+            if numPr is None:
+                return None
+
+            level=numPr.ilvl.val
+
+            return int(level)
+
+        except:
+            return None
+
+
+    def get_numbering(self,para):
+
+        return self.get_numbering_level(para) is not None
+
+
+    def has_bold_run(self,para):
+
+        for run in para.runs:
+
+            if run.bold:
 
                 return True
 
-        except:
-            pass
+        return False
+
+
+    def has_font_size_above(self,para,threshold):
+
+        for run in para.runs:
+
+            if run.font.size and run.font.size.pt:
+
+                if run.font.size.pt>threshold:
+
+                    return True
 
         return False
 
 
     def is_title(self,para):
 
-        text=self.clean_text(para.text)
+        text=self.normalize_text(para.text)
 
         if text=="":
             return False
 
-        for run in para.runs:
-
-            if run.bold:
-
-                if run.font.size:
-
-                    if run.font.size.pt>=15:
-
-                        return True
-
-        return False
+        return self.has_font_size_above(para,12)
 
 
     def is_author(self,para):
 
-        text=self.clean_text(para.text)
+        text=self.normalize_text(para.text)
 
         if text=="":
             return False
@@ -74,55 +122,55 @@ class StructureDetector:
 
     def is_heading(self,para):
 
-        text=self.clean_text(para.text)
+        text=self.normalize_text(para.text)
 
         if text=="":
             return False
 
-        if self.get_numbering(para):
+        normalized=text.lower().rstrip(":")
+        word_count=len(text.split())
 
-            try:
-
-                level=para._element.pPr.numPr.ilvl.val
-
-                if int(level)==0:
-
-                    return True
-
-            except:
-                pass
-
-        if text.lower()=="abstract":
+        if normalized in self.SECTION_KEYWORDS:
 
             return True
 
-        if re.match(r'^\d+\s+',text):
+        # Uppercase short lines are very likely section headings.
+        if text.isupper() and word_count<=8 and ":" not in text:
 
             return True
+
+        # Explicit "1 INTRODUCTION" or "1. INTRODUCTION" style.
+        if re.match(r'^\d+[\.\)]?\s+[A-Za-z]',text):
+
+            if word_count<=12 and ":" not in text and not text.endswith("."):
+
+                return True
 
         return False
 
 
     def is_subheading(self,para):
 
-        text=self.clean_text(para.text)
+        text=self.normalize_text(para.text)
 
         if text=="":
             return False
 
-        if re.match(r'^\d+(\.\d+)+\.?',text):
+        if re.match(r'^\d+\.\d+(\.\d+)*\.?\s+',text):
 
             return True
 
-        if self.get_numbering(para):
+        level=self.get_numbering_level(para)
+
+        if level is not None:
 
             try:
 
-                level=para._element.pPr.numPr.ilvl.val
-
                 if int(level)>=1:
 
-                    return True
+                    if len(text.split())<=14:
+
+                        return True
 
             except:
                 pass
@@ -131,9 +179,12 @@ class StructureDetector:
 
         if word_count<=10:
 
-            for run in para.runs:
+            if text.isupper():
+                return False
 
-                if run.bold:
+            if self.has_bold_run(para):
+
+                if not text.endswith("."):
 
                     return True
 
@@ -142,7 +193,7 @@ class StructureDetector:
 
     def is_bullet(self,para):
 
-        text=self.clean_text(para.text)
+        text=self.normalize_text(para.text)
 
         if text=="":
             return False
